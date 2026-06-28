@@ -1,63 +1,147 @@
 <!DOCTYPE html>
-<html>
-	<head>
-		<title>Infinite Mario - JavaScript</title>
-        <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
-	</head>
-	<body>
-		<canvas id="canvas" width="640" height="480">
-			<p>Your browser does not support the canvas element.</p>
-		</canvas>
-        
-        <!-- Enjine Includes -->
-        <script src="Enjine/core.js"></script>
-        <script src="Enjine/gameCanvas.js"></script>
-        <script src="Enjine/keyboardInput.js"></script>
-        <script src="Enjine/resources.js"></script>
-        <script src="Enjine/drawable.js"></script>
-        <script src="Enjine/state.js"></script>
-        <script src="Enjine/gameTimer.js"></script>
-        <script src="Enjine/camera.js"></script>
-        <script src="Enjine/drawableManager.js"></script>
-        <script src="Enjine/sprite.js"></script>
-        <script src="Enjine/spriteFont.js"></script>
-        <script src="Enjine/frameSprite.js"></script>
-        <script src="Enjine/animatedSprite.js"></script>
-        <script src="Enjine/collideable.js"></script>
-        <script src="Enjine/application.js"></script>
-        
-        <!-- Actual game code -->
-        <script src="code/setup.js"></script>
-        <script src="code/spriteCuts.js"></script>
-        <script src="code/level.js"></script>
-        <script src="code/backgroundGenerator.js"></script>
-        <script src="code/backgroundRenderer.js"></script>
-        <script src="code/improvedNoise.js"></script>
-        <script src="code/notchSprite.js"></script>
-        <script src="code/character.js"></script>
-        <script src="code/levelRenderer.js"></script>
-        <script src="code/levelGenerator.js"></script>
-        <script src="code/spriteTemplate.js"></script>
-        <script src="code/enemy.js"></script>
-        <script src="code/fireball.js"></script>
-        <script src="code/sparkle.js"></script>
-        <script src="code/coinAnim.js"></script>
-        <script src="code/mushroom.js"></script>
-		<script src="code/particle.js"></script>
-		<script src="code/fireFlower.js"></script>
-        <script src="code/bulletBill.js"></script>
-        <script src="code/flowerEnemy.js"></script>
-        <script src="code/shell.js"></script>
-        
-        <script src="code/titleState.js"></script>
-        <script src="code/loadingState.js"></script>
-        <script src="code/loseState.js"></script>
-        <script src="code/winState.js"></script>
-        <script src="code/mapState.js"></script>
-        <script src="code/levelState.js"></script>
-        
-        <script src="code/music.js"></script>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Mario - JavaScript</title>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-        <script>$(document).ready(function() { new Enjine.Application().Initialize(new Mario.LoadingState(), 320, 240) });</script>
-	</body>
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #canvas-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #canvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            /* Scales to fill screen while keeping 4:3 aspect ratio */
+            max-width: 100vw;
+            max-height: 100vh;
+            width: auto;
+            height: auto;
+            aspect-ratio: 4 / 3;
+        }
+
+        /* Fallback message styling */
+        #canvas p {
+            color: #fff;
+            font-family: Arial, sans-serif;
+            font-size: 1.2rem;
+            text-align: center;
+            padding: 2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-wrapper">
+        <canvas id="canvas" width="640" height="480">
+            <p>Your browser does not support the canvas element.</p>
+        </canvas>
+    </div>
+
+    <!-- Enjine Includes -->
+    <script src="Enjine/core.js"></script>
+    <script src="Enjine/gameCanvas.js"></script>
+    <script src="Enjine/keyboardInput.js"></script>
+    <script src="Enjine/resources.js"></script>
+    <script src="Enjine/drawable.js"></script>
+    <script src="Enjine/state.js"></script>
+    <script src="Enjine/gameTimer.js"></script>
+    <script src="Enjine/camera.js"></script>
+    <script src="Enjine/drawableManager.js"></script>
+    <script src="Enjine/sprite.js"></script>
+    <script src="Enjine/spriteFont.js"></script>
+    <script src="Enjine/frameSprite.js"></script>
+    <script src="Enjine/animatedSprite.js"></script>
+    <script src="Enjine/collideable.js"></script>
+    <script src="Enjine/application.js"></script>
+
+    <!-- Actual game code -->
+    <script src="code/setup.js"></script>
+    <script src="code/spriteCuts.js"></script>
+    <script src="code/level.js"></script>
+    <script src="code/backgroundGenerator.js"></script>
+    <script src="code/backgroundRenderer.js"></script>
+    <script src="code/improvedNoise.js"></script>
+    <script src="code/notchSprite.js"></script>
+    <script src="code/character.js"></script>
+    <script src="code/levelRenderer.js"></script>
+    <script src="code/levelGenerator.js"></script>
+    <script src="code/spriteTemplate.js"></script>
+    <script src="code/enemy.js"></script>
+    <script src="code/fireball.js"></script>
+    <script src="code/sparkle.js"></script>
+    <script src="code/coinAnim.js"></script>
+    <script src="code/mushroom.js"></script>
+    <script src="code/particle.js"></script>
+    <script src="code/fireFlower.js"></script>
+    <script src="code/bulletBill.js"></script>
+    <script src="code/flowerEnemy.js"></script>
+    <script src="code/shell.js"></script>
+
+    <script src="code/titleState.js"></script>
+    <script src="code/loadingState.js"></script>
+    <script src="code/loseState.js"></script>
+    <script src="code/winState.js"></script>
+    <script src="code/mapState.js"></script>
+    <script src="code/levelState.js"></script>
+
+    <script src="code/music.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            // Initialize game at native resolution — CSS scaling handles fullscreen
+            new Enjine.Application().Initialize(new Mario.LoadingState(), 320, 240);
+
+            // Dynamically scale canvas to fill viewport maintaining 4:3 aspect ratio
+            function resizeCanvas() {
+                var canvas = document.getElementById('canvas');
+                var windowW = window.innerWidth;
+                var windowH = window.innerHeight;
+                var gameAspect = 4 / 3;
+                var windowAspect = windowW / windowH;
+
+                var newW, newH;
+                if (windowAspect > gameAspect) {
+                    // Window is wider than game — fit by height
+                    newH = windowH;
+                    newW = windowH * gameAspect;
+                } else {
+                    // Window is taller than game — fit by width
+                    newW = windowW;
+                    newH = windowW / gameAspect;
+                }
+
+                canvas.style.width  = Math.floor(newW) + 'px';
+                canvas.style.height = Math.floor(newH) + 'px';
+            }
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+        });
+    </script>
+
+</body>
 </html>
