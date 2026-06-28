@@ -5,288 +5,411 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Super Mario — DevSecOps GitOps Demo</title>
     <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
+
+        /* ── Design tokens ─────────────────────────────────────────────── */
         :root {
-            --mario-red:    #E52521;
-            --mario-yellow: #FBD000;
-            --mario-blue:   #049CD8;
-            --mario-green:  #43B047;
-            --night-sky:    #0D0D1A;
-            --hud-bg:       rgba(13, 13, 26, 0.85);
-            --pixel-font:   'Press Start 2P', monospace;
-            --ui-font:      'Inter', sans-serif;
+            --red:      #E52521;
+            --yellow:   #FBD000;
+            --blue:     #049CD8;
+            --green:    #43B047;
+            --bg:       #080B14;
+            --surface:  rgba(255,255,255,0.04);
+            --border:   rgba(255,255,255,0.08);
+            --text:     rgba(255,255,255,0.90);
+            --muted:    rgba(255,255,255,0.35);
+            --pixel:    'Press Start 2P', monospace;
+            --mono:     'DM Mono', monospace;
+            --sans:     'Inter', sans-serif;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* ── Reset ─────────────────────────────────────────────────────── */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         html, body {
             width: 100%; height: 100%;
             overflow: hidden;
-            background: var(--night-sky);
-            font-family: var(--ui-font);
+            background: var(--bg);
+            font-family: var(--sans);
+            color: var(--text);
         }
 
-        /* ── Starfield background ─────────────────────────────────────── */
-        #stars {
+        /* ── Ambient gradient mesh — unique signature element ──────────── */
+        /* Two soft blobs of Mario red and blue give depth without gradients */
+        body::before {
+            content: '';
             position: fixed;
             inset: 0;
+            background:
+                radial-gradient(ellipse 60% 40% at 15% 20%, rgba(229,37,33,0.07) 0%, transparent 70%),
+                radial-gradient(ellipse 50% 35% at 85% 75%, rgba(4,156,216,0.06) 0%, transparent 70%);
             pointer-events: none;
             z-index: 0;
         }
 
-        /* ── HUD bar top ──────────────────────────────────────────────── */
-        #hud {
+        /* ── Starfield canvas ──────────────────────────────────────────── */
+        #stars {
             position: fixed;
-            top: 0; left: 0; right: 0;
-            height: 44px;
-            background: var(--hud-bg);
-            backdrop-filter: blur(8px);
-            border-bottom: 2px solid var(--mario-red);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 20px;
-            z-index: 100;
-        }
-
-        #hud-title {
-            font-family: var(--pixel-font);
-            font-size: 9px;
-            color: var(--mario-yellow);
-            letter-spacing: 1px;
-            text-shadow: 2px 2px 0 var(--mario-red);
-        }
-
-        #hud-badges {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .badge {
-            font-family: var(--pixel-font);
-            font-size: 6px;
-            padding: 4px 8px;
-            border-radius: 3px;
-            letter-spacing: 0.5px;
-            border: 1px solid currentColor;
-        }
-
-        .badge-red   { color: var(--mario-red);    background: rgba(229,37,33,0.12); }
-        .badge-blue  { color: var(--mario-blue);   background: rgba(4,156,216,0.12); }
-        .badge-green { color: var(--mario-green);  background: rgba(67,176,71,0.12); }
-
-        /* ── Main canvas area ─────────────────────────────────────────── */
-        #stage {
-            position: fixed;
-            inset: 44px 0 40px 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            inset: 0;
+            pointer-events: none;
             z-index: 1;
         }
 
-        /* Pixel-art glow frame around canvas */
-        #canvas-frame {
+        /* ── TOP NAV ───────────────────────────────────────────────────── */
+        #nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 200;
+            border-bottom: 1px solid var(--border);
+            background: rgba(8,11,20,0.80);
+            backdrop-filter: blur(20px) saturate(1.4);
+            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+        }
+
+        /* Left — pixel wordmark */
+        #nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #nav-icon {
+            width: 28px; height: 28px;
+            background: var(--red);
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+            box-shadow: 0 0 12px rgba(229,37,33,0.40);
+        }
+
+        #nav-wordmark {
+            font-family: var(--pixel);
+            font-size: 8px;
+            color: var(--yellow);
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 16px rgba(251,208,0,0.40);
+            line-height: 1.4;
+        }
+
+        #nav-sub {
+            font-family: var(--mono);
+            font-size: 9px;
+            color: var(--muted);
+            letter-spacing: 0.08em;
+        }
+
+        /* Right — pill tags */
+        #nav-pills {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .pill {
+            font-family: var(--mono);
+            font-size: 9px;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 999px;
+            letter-spacing: 0.06em;
+            border: 1px solid;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .pill::before {
+            content: '';
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: currentColor;
+            opacity: 0.7;
+        }
+
+        .pill-red   { color: var(--red);   border-color: rgba(229,37,33,0.30); background: rgba(229,37,33,0.08); }
+        .pill-blue  { color: var(--blue);  border-color: rgba(4,156,216,0.30); background: rgba(4,156,216,0.08); }
+        .pill-green { color: var(--green); border-color: rgba(67,176,71,0.30);  background: rgba(67,176,71,0.08); }
+
+        /* ── GAME STAGE ────────────────────────────────────────────────── */
+        #stage {
+            position: fixed;
+            inset: 52px 0 56px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        /* Outer glow ring — the distinctive frame */
+        #canvas-wrap {
             position: relative;
             line-height: 0;
+            border-radius: 4px;
+            /* Layered ring: thin yellow outline, then wide red glow, then deep shadow */
             box-shadow:
-                0 0 0 3px var(--mario-red),
-                0 0 0 6px var(--mario-yellow),
-                0 0 40px rgba(251,208,0,0.25),
-                0 0 80px rgba(229,37,33,0.15);
+                0 0 0 1px rgba(251,208,0,0.50),
+                0 0 0 3px rgba(229,37,33,0.25),
+                0 0 60px rgba(229,37,33,0.18),
+                0 0 120px rgba(229,37,33,0.08),
+                0 32px 80px rgba(0,0,0,0.60);
         }
 
         #canvas {
             display: block;
+            border-radius: 3px;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
-            max-width: calc(100vw - 32px);
-            max-height: calc(100vh - 120px);
+            max-width:  calc(100vw - 40px);
+            max-height: calc(100vh - 52px - 56px - 24px);
             width: auto;
             height: auto;
             aspect-ratio: 4 / 3;
         }
 
-        /* Scanline overlay for retro CRT feel */
+        /* CRT scanlines — very subtle */
         #scanlines {
             position: absolute;
             inset: 0;
+            border-radius: 3px;
             pointer-events: none;
             background: repeating-linear-gradient(
                 to bottom,
                 transparent,
-                transparent 3px,
-                rgba(0,0,0,0.08) 3px,
-                rgba(0,0,0,0.08) 4px
+                transparent 2px,
+                rgba(0,0,0,0.06) 2px,
+                rgba(0,0,0,0.06) 3px
             );
         }
 
-        /* ── Footer bar ───────────────────────────────────────────────── */
-        #footer {
+        /* Vignette — darkens corners like a real CRT */
+        #vignette {
+            position: absolute;
+            inset: 0;
+            border-radius: 3px;
+            pointer-events: none;
+            background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.45) 100%);
+        }
+
+        /* ── CONTROLS HINT — fades after 4s ───────────────────────────── */
+        #controls {
             position: fixed;
-            bottom: 0; left: 0; right: 0;
-            height: 40px;
-            background: var(--hud-bg);
-            backdrop-filter: blur(8px);
-            border-top: 2px solid rgba(255,255,255,0.06);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 32px;
-            z-index: 100;
-        }
-
-        .footer-item {
-            font-family: var(--pixel-font);
-            font-size: 6px;
-            color: rgba(255,255,255,0.35);
-            letter-spacing: 0.8px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .footer-item .dot {
-            width: 6px; height: 6px;
-            border-radius: 1px;
-            display: inline-block;
-        }
-
-        .dot-red    { background: var(--mario-red); }
-        .dot-blue   { background: var(--mario-blue); }
-        .dot-green  { background: var(--mario-green); }
-        .dot-yellow { background: var(--mario-yellow); }
-
-        /* ── Controls hint overlay (fades out) ───────────────────────── */
-        #controls-hint {
-            position: fixed;
-            bottom: 50px;
+            bottom: 66px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(13,13,26,0.9);
-            border: 1px solid rgba(251,208,0,0.3);
-            border-radius: 6px;
-            padding: 10px 20px;
             display: flex;
-            gap: 20px;
-            z-index: 50;
-            animation: fadeHint 4s ease 3s forwards;
+            gap: 2px;
+            z-index: 100;
+            animation: fadeOut 1s ease 4s forwards;
         }
 
-        @keyframes fadeHint {
-            0%   { opacity: 1; }
-            100% { opacity: 0; pointer-events: none; }
+        @keyframes fadeOut {
+            to { opacity: 0; pointer-events: none; }
         }
 
-        .ctrl {
+        .key-group {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
+            padding: 10px 14px;
+            background: rgba(8,11,20,0.85);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            backdrop-filter: blur(12px);
         }
 
-        .ctrl-key {
-            font-family: var(--pixel-font);
-            font-size: 7px;
-            color: var(--mario-yellow);
-            background: rgba(251,208,0,0.12);
-            border: 1px solid var(--mario-yellow);
-            border-radius: 3px;
-            padding: 3px 6px;
+        .key-group:first-child { border-radius: 8px 2px 2px 8px; }
+        .key-group:last-child  { border-radius: 2px 8px 8px 2px; }
+
+        .key {
+            font-family: var(--mono);
+            font-size: 9px;
+            font-weight: 500;
+            color: var(--yellow);
+            background: rgba(251,208,0,0.10);
+            border: 1px solid rgba(251,208,0,0.30);
+            border-radius: 4px;
+            padding: 3px 7px;
+            white-space: nowrap;
         }
 
-        .ctrl-label {
-            font-family: var(--pixel-font);
-            font-size: 5px;
-            color: rgba(255,255,255,0.4);
-            letter-spacing: 0.5px;
+        .key-label {
+            font-family: var(--mono);
+            font-size: 8px;
+            color: var(--muted);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
         }
 
-        /* ── Fullscreen button ────────────────────────────────────────── */
+        /* ── FULLSCREEN BUTTON ─────────────────────────────────────────── */
         #fs-btn {
             position: fixed;
-            top: 52px;
-            right: 12px;
-            background: rgba(13,13,26,0.8);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 4px;
-            color: rgba(255,255,255,0.5);
-            font-size: 14px;
-            width: 28px; height: 28px;
+            top: 62px;
+            right: 16px;
+            width: 30px; height: 30px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--muted);
+            font-size: 13px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 50;
-            transition: border-color 0.2s, color 0.2s;
+            z-index: 200;
+            transition: border-color 0.15s, color 0.15s, background 0.15s;
         }
-        #fs-btn:hover { border-color: var(--mario-yellow); color: var(--mario-yellow); }
+        #fs-btn:hover {
+            border-color: rgba(251,208,0,0.40);
+            color: var(--yellow);
+            background: rgba(251,208,0,0.06);
+        }
 
-        /* ── Canvas fallback ─────────────────────────────────────────── */
-        #canvas p {
-            color: #fff;
-            font-family: var(--pixel-font);
-            font-size: 10px;
-            text-align: center;
-            padding: 2rem;
+        /* ── STATUS BAR (bottom) ───────────────────────────────────────── */
+        #statusbar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: 56px;
+            background: rgba(8,11,20,0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            z-index: 200;
         }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 28px;
+            border-right: 1px solid var(--border);
+        }
+        .status-item:last-child { border-right: none; }
+
+        .status-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            animation: pulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.4; }
+        }
+
+        .dot-r { background: var(--red);    box-shadow: 0 0 6px var(--red); }
+        .dot-b { background: var(--blue);   box-shadow: 0 0 6px var(--blue); }
+        .dot-g { background: var(--green);  box-shadow: 0 0 6px var(--green); }
+        .dot-y { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+
+        .status-label {
+            font-family: var(--mono);
+            font-size: 9px;
+            font-weight: 500;
+            color: var(--muted);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .status-value {
+            font-family: var(--mono);
+            font-size: 9px;
+            font-weight: 500;
+            color: var(--text);
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+
     </style>
 </head>
 <body>
 
-    <!-- Starfield -->
     <canvas id="stars"></canvas>
 
-    <!-- Top HUD -->
-    <div id="hud">
-        <span id="hud-title">🍄 SUPER MARIO — GITOPS DEMO</span>
-        <div id="hud-badges">
-            <span class="badge badge-red">DOCKER</span>
-            <span class="badge badge-blue">KUBERNETES</span>
-            <span class="badge badge-green">ARGOCD</span>
+    <!-- Top nav -->
+    <nav id="nav">
+        <div id="nav-brand">
+            <div id="nav-icon">🍄</div>
+            <div>
+                <div id="nav-wordmark">SUPER MARIO</div>
+                <div id="nav-sub">DevSecOps · GitOps · Demo</div>
+            </div>
         </div>
-    </div>
+        <div id="nav-pills">
+            <span class="pill pill-red">DOCKER</span>
+            <span class="pill pill-blue">KUBERNETES</span>
+            <span class="pill pill-green">ARGOCD</span>
+        </div>
+    </nav>
 
-    <!-- Fullscreen toggle -->
-    <button id="fs-btn" title="Toggle Fullscreen">⛶</button>
+    <!-- Fullscreen -->
+    <button id="fs-btn" title="Toggle fullscreen">⛶</button>
 
-    <!-- Game Stage -->
+    <!-- Game -->
     <div id="stage">
-        <div id="canvas-frame">
+        <div id="canvas-wrap">
             <canvas id="canvas" width="640" height="480">
-                <p>Your browser does not support the canvas element.</p>
+                <p style="color:#fff;font-family:monospace;padding:2rem">Canvas not supported.</p>
             </canvas>
             <div id="scanlines"></div>
+            <div id="vignette"></div>
         </div>
     </div>
 
     <!-- Controls hint -->
-    <div id="controls-hint">
-        <div class="ctrl">
-            <span class="ctrl-key">← →</span>
-            <span class="ctrl-label">MOVE</span>
+    <div id="controls">
+        <div class="key-group">
+            <span class="key">← →</span>
+            <span class="key-label">Move</span>
         </div>
-        <div class="ctrl">
-            <span class="ctrl-key">↑ / SPC</span>
-            <span class="ctrl-label">JUMP</span>
+        <div class="key-group">
+            <span class="key">↑ / Space</span>
+            <span class="key-label">Jump</span>
         </div>
-        <div class="ctrl">
-            <span class="ctrl-key">SHIFT</span>
-            <span class="ctrl-label">RUN / FIRE</span>
+        <div class="key-group">
+            <span class="key">Shift</span>
+            <span class="key-label">Run / Fire</span>
         </div>
     </div>
 
-    <!-- Footer -->
-    <div id="footer">
-        <span class="footer-item"><span class="dot dot-red"></span>CI/CD via GitHub Actions</span>
-        <span class="footer-item"><span class="dot dot-blue"></span>AKS Kubernetes</span>
-        <span class="footer-item"><span class="dot dot-green"></span>GitOps with ArgoCD</span>
-        <span class="footer-item"><span class="dot dot-yellow"></span>devsecops-demo.work.gd</span>
+    <!-- Status bar -->
+    <div id="statusbar">
+        <div class="status-item">
+            <span class="status-dot dot-g"></span>
+            <span class="status-label">Pipeline</span>
+            <span class="status-value">GitHub Actions</span>
+        </div>
+        <div class="status-item">
+            <span class="status-dot dot-b"></span>
+            <span class="status-label">Cluster</span>
+            <span class="status-value">Azure AKS</span>
+        </div>
+        <div class="status-item">
+            <span class="status-dot dot-r"></span>
+            <span class="status-label">GitOps</span>
+            <span class="status-value">ArgoCD</span>
+        </div>
+        <div class="status-item">
+            <span class="status-dot dot-y"></span>
+            <span class="status-label">Live at</span>
+            <span class="status-value">devsecops-demo.work.gd</span>
+        </div>
     </div>
 
-    <!-- Enjine Includes -->
+    <!-- Enjine -->
     <script src="Enjine/core.js"></script>
     <script src="Enjine/gameCanvas.js"></script>
     <script src="Enjine/keyboardInput.js"></script>
@@ -303,7 +426,7 @@
     <script src="Enjine/collideable.js"></script>
     <script src="Enjine/application.js"></script>
 
-    <!-- Actual game code -->
+    <!-- Game code -->
     <script src="code/setup.js"></script>
     <script src="code/spriteCuts.js"></script>
     <script src="code/level.js"></script>
@@ -344,57 +467,58 @@
             resize();
             window.addEventListener('resize', resize);
 
-            for (var i = 0; i < 120; i++) {
+            for (var i = 0; i < 160; i++) {
                 stars.push({
                     x: Math.random(),
                     y: Math.random(),
-                    r: Math.random() * 1.2 + 0.3,
-                    speed: Math.random() * 0.0002 + 0.00005,
-                    phase: Math.random() * Math.PI * 2
+                    r: Math.random() * 1.0 + 0.2,
+                    phase: Math.random() * Math.PI * 2,
+                    speed: Math.random() * 0.0003 + 0.00008
                 });
             }
 
-            function drawStars(t) {
+            function draw(t) {
                 ctx.clearRect(0, 0, c.width, c.height);
-                stars.forEach(function (s) {
-                    var alpha = 0.3 + 0.5 * Math.sin(t * s.speed * 1000 + s.phase);
+                stars.forEach(function(s) {
+                    var a = 0.25 + 0.45 * Math.sin(t * s.speed * 1000 + s.phase);
                     ctx.beginPath();
                     ctx.arc(s.x * c.width, s.y * c.height, s.r, 0, Math.PI * 2);
-                    ctx.fillStyle = 'rgba(255,255,255,' + alpha + ')';
+                    ctx.fillStyle = 'rgba(255,255,255,' + a + ')';
                     ctx.fill();
                 });
-                requestAnimationFrame(drawStars);
+                requestAnimationFrame(draw);
             }
-            requestAnimationFrame(drawStars);
+            requestAnimationFrame(draw);
         })();
 
-        /* ── Canvas resize ───────────────────────────────────────────── */
+        /* ── Canvas resize — max size preserving 4:3 ─────────────────── */
         function resizeCanvas() {
             var canvas = document.getElementById('canvas');
-            var availW = window.innerWidth - 32;
-            var availH = window.innerHeight - 44 - 40 - 16; // hud + footer + padding
+            var pad = 24;
+            var availW = window.innerWidth  - pad;
+            var availH = window.innerHeight - 52 - 56 - pad;
             var aspect = 4 / 3;
 
-            var newW, newH;
+            var w, h;
             if (availW / availH > aspect) {
-                newH = availH; newW = availH * aspect;
+                h = availH; w = h * aspect;
             } else {
-                newW = availW; newH = availW / aspect;
+                w = availW; h = w / aspect;
             }
-            canvas.style.width  = Math.floor(newW) + 'px';
-            canvas.style.height = Math.floor(newH) + 'px';
+            canvas.style.width  = Math.floor(w) + 'px';
+            canvas.style.height = Math.floor(h) + 'px';
         }
 
-        /* ── Fullscreen toggle ───────────────────────────────────────── */
+        /* ── Fullscreen ──────────────────────────────────────────────── */
         document.getElementById('fs-btn').addEventListener('click', function () {
             if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen();
+                document.documentElement.requestFullscreen().catch(function(){});
             } else {
                 document.exitFullscreen();
             }
         });
 
-        /* ── Boot ────────────────────────────────────────────────────── */
+        /* ── Boot game ───────────────────────────────────────────────── */
         $(document).ready(function () {
             new Enjine.Application().Initialize(new Mario.LoadingState(), 320, 240);
             resizeCanvas();
