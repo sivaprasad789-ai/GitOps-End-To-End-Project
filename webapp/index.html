@@ -3,51 +3,232 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Infinite Mario - JavaScript</title>
+    <title>Super Mario — DevSecOps GitOps Demo</title>
     <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --mario-red:    #E52521;
+            --mario-yellow: #FBD000;
+            --mario-blue:   #049CD8;
+            --mario-green:  #43B047;
+            --night-sky:    #0D0D1A;
+            --hud-bg:       rgba(13, 13, 26, 0.85);
+            --pixel-font:   'Press Start 2P', monospace;
+            --ui-font:      'Inter', sans-serif;
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         html, body {
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             overflow: hidden;
-            background-color: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background: var(--night-sky);
+            font-family: var(--ui-font);
         }
 
-        #canvas-wrapper {
-            position: relative;
+        /* ── Starfield background ─────────────────────────────────────── */
+        #stars {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── HUD bar top ──────────────────────────────────────────────── */
+        #hud {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 44px;
+            background: var(--hud-bg);
+            backdrop-filter: blur(8px);
+            border-bottom: 2px solid var(--mario-red);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 100;
+        }
+
+        #hud-title {
+            font-family: var(--pixel-font);
+            font-size: 9px;
+            color: var(--mario-yellow);
+            letter-spacing: 1px;
+            text-shadow: 2px 2px 0 var(--mario-red);
+        }
+
+        #hud-badges {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .badge {
+            font-family: var(--pixel-font);
+            font-size: 6px;
+            padding: 4px 8px;
+            border-radius: 3px;
+            letter-spacing: 0.5px;
+            border: 1px solid currentColor;
+        }
+
+        .badge-red   { color: var(--mario-red);    background: rgba(229,37,33,0.12); }
+        .badge-blue  { color: var(--mario-blue);   background: rgba(4,156,216,0.12); }
+        .badge-green { color: var(--mario-green);  background: rgba(67,176,71,0.12); }
+
+        /* ── Main canvas area ─────────────────────────────────────────── */
+        #stage {
+            position: fixed;
+            inset: 44px 0 40px 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 100vw;
-            height: 100vh;
+            z-index: 1;
+        }
+
+        /* Pixel-art glow frame around canvas */
+        #canvas-frame {
+            position: relative;
+            line-height: 0;
+            box-shadow:
+                0 0 0 3px var(--mario-red),
+                0 0 0 6px var(--mario-yellow),
+                0 0 40px rgba(251,208,0,0.25),
+                0 0 80px rgba(229,37,33,0.15);
         }
 
         #canvas {
             display: block;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
-            /* Scales to fill screen while keeping 4:3 aspect ratio */
-            max-width: 100vw;
-            max-height: 100vh;
+            max-width: calc(100vw - 32px);
+            max-height: calc(100vh - 120px);
             width: auto;
             height: auto;
             aspect-ratio: 4 / 3;
         }
 
-        /* Fallback message styling */
+        /* Scanline overlay for retro CRT feel */
+        #scanlines {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent,
+                transparent 3px,
+                rgba(0,0,0,0.08) 3px,
+                rgba(0,0,0,0.08) 4px
+            );
+        }
+
+        /* ── Footer bar ───────────────────────────────────────────────── */
+        #footer {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: 40px;
+            background: var(--hud-bg);
+            backdrop-filter: blur(8px);
+            border-top: 2px solid rgba(255,255,255,0.06);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 32px;
+            z-index: 100;
+        }
+
+        .footer-item {
+            font-family: var(--pixel-font);
+            font-size: 6px;
+            color: rgba(255,255,255,0.35);
+            letter-spacing: 0.8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .footer-item .dot {
+            width: 6px; height: 6px;
+            border-radius: 1px;
+            display: inline-block;
+        }
+
+        .dot-red    { background: var(--mario-red); }
+        .dot-blue   { background: var(--mario-blue); }
+        .dot-green  { background: var(--mario-green); }
+        .dot-yellow { background: var(--mario-yellow); }
+
+        /* ── Controls hint overlay (fades out) ───────────────────────── */
+        #controls-hint {
+            position: fixed;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(13,13,26,0.9);
+            border: 1px solid rgba(251,208,0,0.3);
+            border-radius: 6px;
+            padding: 10px 20px;
+            display: flex;
+            gap: 20px;
+            z-index: 50;
+            animation: fadeHint 4s ease 3s forwards;
+        }
+
+        @keyframes fadeHint {
+            0%   { opacity: 1; }
+            100% { opacity: 0; pointer-events: none; }
+        }
+
+        .ctrl {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .ctrl-key {
+            font-family: var(--pixel-font);
+            font-size: 7px;
+            color: var(--mario-yellow);
+            background: rgba(251,208,0,0.12);
+            border: 1px solid var(--mario-yellow);
+            border-radius: 3px;
+            padding: 3px 6px;
+        }
+
+        .ctrl-label {
+            font-family: var(--pixel-font);
+            font-size: 5px;
+            color: rgba(255,255,255,0.4);
+            letter-spacing: 0.5px;
+        }
+
+        /* ── Fullscreen button ────────────────────────────────────────── */
+        #fs-btn {
+            position: fixed;
+            top: 52px;
+            right: 12px;
+            background: rgba(13,13,26,0.8);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 4px;
+            color: rgba(255,255,255,0.5);
+            font-size: 14px;
+            width: 28px; height: 28px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            transition: border-color 0.2s, color 0.2s;
+        }
+        #fs-btn:hover { border-color: var(--mario-yellow); color: var(--mario-yellow); }
+
+        /* ── Canvas fallback ─────────────────────────────────────────── */
         #canvas p {
             color: #fff;
-            font-family: Arial, sans-serif;
-            font-size: 1.2rem;
+            font-family: var(--pixel-font);
+            font-size: 10px;
             text-align: center;
             padding: 2rem;
         }
@@ -55,10 +236,54 @@
 </head>
 <body>
 
-    <div id="canvas-wrapper">
-        <canvas id="canvas" width="640" height="480">
-            <p>Your browser does not support the canvas element.</p>
-        </canvas>
+    <!-- Starfield -->
+    <canvas id="stars"></canvas>
+
+    <!-- Top HUD -->
+    <div id="hud">
+        <span id="hud-title">🍄 SUPER MARIO — GITOPS DEMO</span>
+        <div id="hud-badges">
+            <span class="badge badge-red">DOCKER</span>
+            <span class="badge badge-blue">KUBERNETES</span>
+            <span class="badge badge-green">ARGOCD</span>
+        </div>
+    </div>
+
+    <!-- Fullscreen toggle -->
+    <button id="fs-btn" title="Toggle Fullscreen">⛶</button>
+
+    <!-- Game Stage -->
+    <div id="stage">
+        <div id="canvas-frame">
+            <canvas id="canvas" width="640" height="480">
+                <p>Your browser does not support the canvas element.</p>
+            </canvas>
+            <div id="scanlines"></div>
+        </div>
+    </div>
+
+    <!-- Controls hint -->
+    <div id="controls-hint">
+        <div class="ctrl">
+            <span class="ctrl-key">← →</span>
+            <span class="ctrl-label">MOVE</span>
+        </div>
+        <div class="ctrl">
+            <span class="ctrl-key">↑ / SPC</span>
+            <span class="ctrl-label">JUMP</span>
+        </div>
+        <div class="ctrl">
+            <span class="ctrl-key">SHIFT</span>
+            <span class="ctrl-label">RUN / FIRE</span>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div id="footer">
+        <span class="footer-item"><span class="dot dot-red"></span>CI/CD via GitHub Actions</span>
+        <span class="footer-item"><span class="dot dot-blue"></span>AKS Kubernetes</span>
+        <span class="footer-item"><span class="dot dot-green"></span>GitOps with ArgoCD</span>
+        <span class="footer-item"><span class="dot dot-yellow"></span>devsecops-demo.work.gd</span>
     </div>
 
     <!-- Enjine Includes -->
@@ -100,44 +325,78 @@
     <script src="code/bulletBill.js"></script>
     <script src="code/flowerEnemy.js"></script>
     <script src="code/shell.js"></script>
-
     <script src="code/titleState.js"></script>
     <script src="code/loadingState.js"></script>
     <script src="code/loseState.js"></script>
     <script src="code/winState.js"></script>
     <script src="code/mapState.js"></script>
     <script src="code/levelState.js"></script>
-
     <script src="code/music.js"></script>
 
     <script>
-        $(document).ready(function () {
-            // Initialize game at native resolution — CSS scaling handles fullscreen
-            new Enjine.Application().Initialize(new Mario.LoadingState(), 320, 240);
+        /* ── Starfield ───────────────────────────────────────────────── */
+        (function () {
+            var c = document.getElementById('stars');
+            var ctx = c.getContext('2d');
+            var stars = [];
 
-            // Dynamically scale canvas to fill viewport maintaining 4:3 aspect ratio
-            function resizeCanvas() {
-                var canvas = document.getElementById('canvas');
-                var windowW = window.innerWidth;
-                var windowH = window.innerHeight;
-                var gameAspect = 4 / 3;
-                var windowAspect = windowW / windowH;
+            function resize() { c.width = window.innerWidth; c.height = window.innerHeight; }
+            resize();
+            window.addEventListener('resize', resize);
 
-                var newW, newH;
-                if (windowAspect > gameAspect) {
-                    // Window is wider than game — fit by height
-                    newH = windowH;
-                    newW = windowH * gameAspect;
-                } else {
-                    // Window is taller than game — fit by width
-                    newW = windowW;
-                    newH = windowW / gameAspect;
-                }
-
-                canvas.style.width  = Math.floor(newW) + 'px';
-                canvas.style.height = Math.floor(newH) + 'px';
+            for (var i = 0; i < 120; i++) {
+                stars.push({
+                    x: Math.random(),
+                    y: Math.random(),
+                    r: Math.random() * 1.2 + 0.3,
+                    speed: Math.random() * 0.0002 + 0.00005,
+                    phase: Math.random() * Math.PI * 2
+                });
             }
 
+            function drawStars(t) {
+                ctx.clearRect(0, 0, c.width, c.height);
+                stars.forEach(function (s) {
+                    var alpha = 0.3 + 0.5 * Math.sin(t * s.speed * 1000 + s.phase);
+                    ctx.beginPath();
+                    ctx.arc(s.x * c.width, s.y * c.height, s.r, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255,255,255,' + alpha + ')';
+                    ctx.fill();
+                });
+                requestAnimationFrame(drawStars);
+            }
+            requestAnimationFrame(drawStars);
+        })();
+
+        /* ── Canvas resize ───────────────────────────────────────────── */
+        function resizeCanvas() {
+            var canvas = document.getElementById('canvas');
+            var availW = window.innerWidth - 32;
+            var availH = window.innerHeight - 44 - 40 - 16; // hud + footer + padding
+            var aspect = 4 / 3;
+
+            var newW, newH;
+            if (availW / availH > aspect) {
+                newH = availH; newW = availH * aspect;
+            } else {
+                newW = availW; newH = availW / aspect;
+            }
+            canvas.style.width  = Math.floor(newW) + 'px';
+            canvas.style.height = Math.floor(newH) + 'px';
+        }
+
+        /* ── Fullscreen toggle ───────────────────────────────────────── */
+        document.getElementById('fs-btn').addEventListener('click', function () {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        /* ── Boot ────────────────────────────────────────────────────── */
+        $(document).ready(function () {
+            new Enjine.Application().Initialize(new Mario.LoadingState(), 320, 240);
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
         });
