@@ -1,278 +1,471 @@
+# 🍄 GitOps End-to-End Project — Super Mario DevSecOps Pipeline
 
-## Overview
+## 📖 Overview
 
-The Docker Super Mario Project is a modern adaptation of the classic Infinite Mario game, reimagined using HTML5, JavaScript, Canvas, and Audio elements. This project serves as an exemplary platform for learning and implementing GitOps pipelines, offering a hands-on approach to continuous integration and continuous deployment (CI/CD) practices targeting Azure Kubernetes Service (AKS).
+This project demonstrates a **production-grade GitOps CI/CD pipeline** built around the classic Infinite Mario browser game (HTML5/JavaScript). It serves as a hands-on learning platform for end-to-end DevSecOps practices — covering source code security scanning, containerization, image vulnerability scanning, Kubernetes deployment, and GitOps-based continuous delivery via ArgoCD.
 
----
-
-## Features
-
-- **HTML5 Canvas**: Delivers dynamic, scriptable rendering of 2D shapes and bitmap images.
-- **JavaScript**: Ensures interactive game mechanics and responsive design.
-- **Audio Elements**: Enhances the gaming experience with authentic sound effects and background music.
-- **Docker Integration**: Facilitates the deployment of the application in isolated environments, making it easy to share and scale.
-- **GitOps Workflow**: Introduces participants to modern DevOps practices, focusing on automation, monitoring, and version control.
+The application is a JavaScript port of the original Java Infinite Mario by Notch (Markus Persson), rendered using HTML5 Canvas and Audio elements, served via Apache Tomcat inside a Docker container.
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ```
-Developer Workstation
-        │
-        ▼
-  GitHub Repository
-  ├── app/              ← Game source code
-  ├── Dockerfile        ← Container definition
-  ├── terraform/        ← AKS infrastructure as code
-  └── gitops/           ← Kubernetes manifests (ArgoCD watches this)
-        │
-        ▼
-  GitHub Actions (CI)
-  ├── Build Docker image
-  ├── Run security scans (Trivy, Checkov)
-  ├── Push to Azure Container Registry (ACR)
-  └── Update image tag in gitops/ manifests
-        │
-        ▼
-  ArgoCD (CD — GitOps Controller)
-  └── Watches gitops/ branch → Auto-syncs to AKS
-        │
-        ▼
-  Azure Kubernetes Service (AKS)
-  ├── Namespace: mario-prod
-  ├── Deployment: mario-app (replicas: 2)
-  ├── Service: LoadBalancer (port 80)
-  └── Ingress: NGINX + TLS (cert-manager)
+┌─────────────────────────────────────────────────────────────────────┐
+│                        DEVELOPER WORKSTATION                        │
+│  git push → github.com/sivaprasad789-ai/GitOps-End-To-End-Project  │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │ Push to main branch
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     GITHUB ACTIONS CI PIPELINE                      │
+│                                                                     │
+│  Job 1: [OPTIONAL] SonarQube SAST Scan                             │
+│          └── sonar.projectKey=gitopsdevsecopspipeline               │
+│                                                                     │
+│  Job 2: Build & Push Docker Image                                   │
+│          ├── docker build -t ramprasad789/gitops-devsecops-project  │
+│          └── docker push → Docker Hub (tagged with VERSION)         │
+│                                                                     │
+│  Job 3: Container Image Scan (Trivy)                                │
+│          ├── docker pull (image from Docker Hub)                    │
+│          ├── docker save → .tar                                     │
+│          └── trivy scan (CRITICAL,HIGH) on .tar artifact            │
+│                                                                     │
+│  Job 4: Update Kubernetes Manifests                                 │
+│          ├── sed → update image tag in deployment.yaml              │
+│          ├── echo VERSION → version.txt                             │
+│          └── git commit + push → triggers ArgoCD sync              │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │ deployment.yaml updated in Git
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    ARGOCD (GitOps Controller)                       │
+│                                                                     │
+│  Watches: deployment.yaml in GitHub repo                            │
+│  Detects: image tag drift between Git (desired) vs AKS (live)      │
+│  Action:  kubectl apply → rolling update on Kubernetes cluster      │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │ Rolling deployment
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    KUBERNETES CLUSTER (AKS / EKS)                  │
+│                                                                     │
+│  Deployment: supermariogame-deployment (replicas: 1)                │
+│  Container:  ramprasad789/gitops-devsecops-project:<VERSION>        │
+│  Port:       containerPort 8080 (Tomcat)                            │
+│  Service:    supermariogame-service (LoadBalancer)                  │
+│              External port 8600 → Target port 8080                 │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+                    🎮 Super Mario Game → Browser
+                       http://<EXTERNAL-IP>:8600
 ```
-
-### Infrastructure Components
-
-| Component | Technology | Purpose |
-|---|---|---|
-| Source Control | GitHub | Code & manifest versioning |
-| CI Pipeline | GitHub Actions | Build, scan, push |
-| Container Registry | Azure Container Registry (ACR) | Image storage |
-| GitOps Controller | ArgoCD | Automated AKS sync |
-| Kubernetes Cluster | Azure AKS | Container orchestration |
-| IaC | Terraform | AKS cluster provisioning |
-| Ingress | NGINX Ingress Controller | HTTP routing + TLS |
-| TLS | cert-manager + Let's Encrypt | SSL certificate automation |
 
 ---
 
-## Prerequisites
+## 📁 Repository Structure
+
+```
+GitOps-End-To-End-Project/
+│
+├── .github/
+│   └── workflows/
+│       └── e2e-gitops.yaml          ← Full CI/CD pipeline definition
+│
+├── webapp/                          ← Mario game source (served by Tomcat)
+│   ├── index.html                   ← Main game entry point (640x480 canvas)
+│   ├── mario.min.js                 ← Minified production bundle
+│   ├── enjine.min.js                ← Minified game engine bundle
+│   ├── flipTest.html                ← Engine test page
+│   ├── minTest.html                 ← Minified bundle test page
+│   │
+│   ├── Enjine/                      ← Custom JavaScript game engine
+│   │   ├── application.js           ← App bootstrap & main loop
+│   │   ├── gameCanvas.js            ← HTML5 Canvas wrapper
+│   │   ├── keyboardInput.js         ← Keyboard event handling
+│   │   ├── resources.js             ← Asset loader (images/sounds)
+│   │   ├── gameTimer.js             ← Game loop timing
+│   │   ├── camera.js                ← Viewport camera
+│   │   ├── drawableManager.js       ← Render pipeline
+│   │   ├── animatedSprite.js        ← Sprite animation
+│   │   ├── collideable.js           ← Collision detection
+│   │   └── state.js                 ← Game state machine
+│   │
+│   ├── code/                        ← Game logic
+│   │   ├── setup.js                 ← Game initialisation
+│   │   ├── character.js             ← Mario character (movement, states)
+│   │   ├── enemy.js                 ← Enemy AI (Goombas, Koopas)
+│   │   ├── levelGenerator.js        ← Procedural level generation
+│   │   ├── levelState.js            ← Active gameplay state
+│   │   ├── mapState.js              ← World map state
+│   │   ├── titleState.js            ← Title screen state
+│   │   ├── loadingState.js          ← Asset loading screen
+│   │   ├── winState.js              ← Win screen state
+│   │   ├── loseState.js             ← Game over state
+│   │   ├── music.js                 ← Audio engine & MIDI playback
+│   │   ├── fireball.js              ← Fireball projectile
+│   │   ├── bulletBill.js            ← Bullet Bill enemy
+│   │   ├── mushroom.js              ← Power-up mushroom
+│   │   ├── fireFlower.js            ← Fire flower power-up
+│   │   ├── shell.js                 ← Koopa shell physics
+│   │   └── levelRenderer.js         ← Level tile rendering
+│   │
+│   ├── images/                      ← Sprite sheets & GIF assets
+│   │   ├── mariosheet.png           ← Mario sprite sheet
+│   │   ├── enemysheet.png           ← Enemy sprite sheet
+│   │   ├── firemariosheet.png       ← Fire Mario sprites
+│   │   ├── itemsheet.png            ← Items (coins, mushrooms)
+│   │   ├── bgsheet.png              ← Background tiles
+│   │   ├── mapsheet.png             ← World map tiles
+│   │   └── worldmap.png             ← World map layout
+│   │
+│   └── sounds/                      ← Audio assets (MP3 + WAV)
+│       ├── smwtitle.mp3             ← Title screen music
+│       ├── smb3map1.mp3             ← World map music
+│       ├── jump.mp3 / .wav          ← Jump sound
+│       ├── coin.mp3 / .wav          ← Coin collect sound
+│       ├── death.mp3 / .wav         ← Death sound
+│       └── [18 additional sounds]   ← Full SFX library
+│
+├── Dockerfile                       ← Container build definition (Tomcat 9 / JRE 8 Alpine)
+├── deployment.yaml                  ← Kubernetes Deployment + LoadBalancer Service
+├── sonar-project.properties         ← SonarQube SAST configuration
+├── version.txt                      ← Auto-incremented image version (current: 2)
+└── demo/
+    └── demo.PNG                     ← Project screenshot
+```
+
+---
+
+## 🔄 End-to-End Pipeline Flow
+
+### Step 1 — Code Push Triggers Pipeline
+
+A `git push` to the `main` branch triggers the GitHub Actions workflow defined in `.github/workflows/e2e-gitops.yaml`.
+
+The pipeline version is auto-calculated:
+```bash
+VERSION = $(( $(cat version.txt) + 1 ))
+```
+
+### Step 2 — [Optional] SonarQube SAST Scan
+
+> Currently commented out in the workflow — enable by uncommenting the `sonarqube_sast_scan` job.
+
+```yaml
+- name: SonarQube Scan
+  uses: sonarsource/sonarqube-scan-action@master
+  env:
+    SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+```
+
+Project key: `gitopsdevsecopspipeline`
+
+### Step 3 — Build & Push Docker Image
+
+```bash
+docker build -t docker.io/ramprasad789/gitops-devsecops-project:$VERSION .
+docker push docker.io/ramprasad789/gitops-devsecops-project:$VERSION
+```
+
+The Dockerfile:
+- Uses `tomcat:9.0.14-jre8-alpine` as base (minimal Alpine footprint)
+- Clears the default Tomcat ROOT webapp
+- Copies the `webapp/` directory into Tomcat's webapps
+- Exposes port `8080`
+- Starts Tomcat via `catalina.sh run`
+
+### Step 4 — Container Image Vulnerability Scan (Trivy)
+
+```bash
+docker pull docker.io/ramprasad789/gitops-devsecops-project:$VERSION
+docker save -o gitops-devsecops-project-latestdockerimage.tar <image>
+trivy scan --severity CRITICAL,HIGH <image.tar>
+```
+
+Trivy scans the saved `.tar` artifact in tarball mode for `CRITICAL` and `HIGH` CVEs. The pipeline currently uses `exit-code: 0` (non-blocking scan — reports only). Change to `exit-code: 1` to enforce a hard gate.
+
+### Step 5 — Update Kubernetes Manifests (GitOps Loop)
+
+```bash
+# Update image tag in deployment.yaml
+sed -i "s|image: ramprasad789/gitops-devsecops-project:.*$|image: ramprasad789/gitops-devsecops-project:$VERSION|" deployment.yaml
+
+# Update version tracking
+echo $VERSION > version.txt
+
+# Commit & push back to repo
+git add deployment.yaml version.txt
+git commit -m "Updated deployment yaml and version txt file with supermario image tag to $VERSION"
+git push
+```
+
+### Step 6 — ArgoCD Detects Drift & Syncs to Kubernetes
+
+ArgoCD continuously watches the repository. When `deployment.yaml` is updated with the new image tag, ArgoCD detects the drift between the desired state (Git) and the live state (Kubernetes), and automatically applies the updated manifest — triggering a rolling update with zero downtime.
+
+---
+
+## 🐳 Docker Details
+
+**Base Image:** `tomcat:9.0.14-jre8-alpine`
+
+```dockerfile
+FROM tomcat:9.0.14-jre8-alpine
+LABEL maintainer="github.com/asecurityguru"
+
+RUN rm -rf /usr/local/tomcat/webapps/ROOT/*
+COPY webapp/ /usr/local/tomcat/webapps/ROOT/
+RUN ln -sf /bin/bash /bin/sh
+
+EXPOSE 8080
+CMD ["catalina.sh", "run"]
+```
+
+| Detail | Value |
+|---|---|
+| Base OS | Alpine Linux (minimal) |
+| Web Server | Apache Tomcat 9.0.14 |
+| Java Runtime | JRE 8 |
+| Container Port | 8080 |
+| Image Registry | Docker Hub |
+| Image Name | `ramprasad789/gitops-devsecops-project` |
+| Tagging Strategy | Auto-incremented integer version |
+
+---
+
+## ☸️ Kubernetes Manifests
+
+### Deployment (`deployment.yaml`)
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supermariogame-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supermariogame
+  template:
+    metadata:
+      labels:
+        app: supermariogame
+    spec:
+      containers:
+      - image: ramprasad789/gitops-devsecops-project:3
+        name: supermariogame-container
+        ports:
+        - containerPort: 8080
+```
+
+### Service (`deployment.yaml` — Service section)
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: supermariogame-service
+spec:
+  selector:
+    app: supermariogame
+  ports:
+  - protocol: TCP
+    port: 8600
+    targetPort: 8080
+  type: LoadBalancer
+```
+
+The service exposes the game externally on port **8600**, routing traffic to Tomcat on port **8080** inside the container.
+
+---
+
+## ✅ Prerequisites
 
 ### Local Tools
 
-| Tool | Version | Install |
+| Tool | Version | Purpose |
 |---|---|---|
-| Git | 2.40+ | [git-scm.com](https://git-scm.com/) |
-| Docker Desktop | 24.0+ | [docker.com](https://www.docker.com/) |
-| kubectl | 1.28+ | [kubernetes.io](https://kubernetes.io/docs/tasks/tools/) |
-| Terraform | 1.6+ | [terraform.io](https://www.terraform.io/) |
-| Azure CLI | 2.50+ | [docs.microsoft.com](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) |
-| Helm | 3.12+ | [helm.sh](https://helm.sh/) |
-
-### Azure Requirements
-
-- Azure Subscription with Contributor role
-- Azure Container Registry (ACR) instance
-- Service Principal with ACR push permissions
-- AKS cluster (provisioned via Terraform — see below)
+| Git | 2.40+ | Source control |
+| Docker Desktop | 24.0+ | Local build & test |
+| kubectl | 1.28+ | Kubernetes CLI |
+| Azure CLI / AWS CLI | Latest | Cloud cluster access |
+| ArgoCD CLI (optional) | 2.9+ | ArgoCD management |
 
 ### GitHub Secrets Required
 
-```
-AZURE_CLIENT_ID
-AZURE_CLIENT_SECRET
-AZURE_TENANT_ID
-AZURE_SUBSCRIPTION_ID
-ACR_LOGIN_SERVER
-ACR_USERNAME
-ACR_PASSWORD
-```
+| Secret | Description |
+|---|---|
+| `DOCKERHUB_USERNAME` | Docker Hub account username |
+| `DOCKERHUB_TOKEN` | Docker Hub access token |
+| `GIT_EMAIL` | Git commit email for manifest updates |
+| `GIT_USERNAME` | Git commit username for manifest updates |
+| `SONAR_HOST_URL` | SonarQube server URL *(optional)* |
+| `SONAR_TOKEN` | SonarQube authentication token *(optional)* |
 
 ---
 
-## Pipeline Stages (CI/CD)
+## 🚀 How to Run Locally
 
-### Stage 1 — Continuous Integration (GitHub Actions)
-
-```yaml
-Trigger: Push to main / Pull Request
-
-Steps:
-  1. Checkout code
-  2. Build Docker image
-  3. Trivy vulnerability scan (image)
-  4. Checkov IaC scan (Terraform)
-  5. Login to Azure Container Registry
-  6. Push image → ACR (tagged with Git SHA)
-  7. Update image tag in gitops/deployment.yaml
-  8. Commit & push manifest update → gitops branch
-```
-
-### Stage 2 — Continuous Deployment (ArgoCD GitOps)
-
-```yaml
-Trigger: Manifest change detected in gitops/ branch
-
-Steps:
-  1. ArgoCD detects diff between desired (Git) vs live (AKS) state
-  2. ArgoCD syncs → applies updated Deployment manifest to AKS
-  3. AKS performs rolling update (zero downtime)
-  4. ArgoCD reports sync status (Healthy / Degraded / Progressing)
-```
-
-### Pipeline Flow Diagram
-
-```
-[Code Push]
-     │
-     ▼
-[GitHub Actions CI]
-     ├─ docker build -t mario:$SHA .
-     ├─ trivy image mario:$SHA
-     ├─ checkov -d terraform/
-     ├─ docker push acr.azurecr.io/mario:$SHA
-     └─ sed -i "s|image:.*|image: acr.azurecr.io/mario:$SHA|" gitops/deployment.yaml
-          │
-          ▼
-     [Git commit → gitops branch]
-          │
-          ▼
-     [ArgoCD detects drift]
-          │
-          ▼
-     [kubectl apply → AKS]
-          │
-          ▼
-     [Rolling Deployment Complete ✅]
-```
-
----
-
-## How to Run Locally
-
-### Option 1 — Docker (Quickest)
+### Option 1 — Docker (Fastest)
 
 ```bash
 # Clone the repository
 git clone https://github.com/sivaprasad789-ai/GitOps-End-To-End-Project.git
 cd GitOps-End-To-End-Project
 
-# Build the Docker image
+# Build the image
 docker build -t mario-game:local .
 
 # Run the container
-docker run -d -p 8080:80 --name mario mario-game:local
+docker run -d -p 8080:8080 --name mario mario-game:local
 
-# Open in browser
-start http://localhost:8080
+# Open the game
+open http://localhost:8080
 ```
 
-### Option 2 — Deploy to Azure AKS
-
-#### Step 1: Provision AKS with Terraform
+### Option 2 — Pull from Docker Hub
 
 ```bash
-cd terraform/
-
-# Authenticate to Azure
-az login
-az account set --subscription "<YOUR_SUBSCRIPTION_ID>"
-
-# Initialize and apply
-terraform init
-terraform plan -out=tfplan
-terraform apply tfplan
+docker pull ramprasad789/gitops-devsecops-project:2
+docker run -d -p 8080:8080 ramprasad789/gitops-devsecops-project:2
+open http://localhost:8080
 ```
 
-#### Step 2: Configure kubectl
+### Option 3 — Deploy to Kubernetes
 
 ```bash
-az aks get-credentials \
-  --resource-group rg-mario-gitops \
-  --name aks-mario-prod \
-  --overwrite-existing
+# Apply manifests
+kubectl apply -f deployment.yaml
 
-kubectl get nodes
+# Watch rollout
+kubectl rollout status deployment/supermariogame-deployment
+
+# Get external IP
+kubectl get svc supermariogame-service
+
+# Open game
+open http://<EXTERNAL-IP>:8600
 ```
 
-#### Step 3: Install ArgoCD on AKS
+### Option 4 — Set up ArgoCD GitOps (Full Pipeline)
 
 ```bash
+# Install ArgoCD
 kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-helm repo add argo https://argoproj.github.io/argo-helm
-helm install argocd argo/argo-cd \
-  --namespace argocd \
-  --set server.service.type=LoadBalancer
-
-# Get ArgoCD admin password
-kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath="{.data.password}" | base64 -d
-```
-
-#### Step 4: Register the App in ArgoCD
-
-```bash
+# Register the application
 kubectl apply -f - <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: mario-game
+  name: gitops-devsecops-project
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://github.com/sivaprasad789-ai/GitOps-End-To-End-Project.git
     targetRevision: main
-    path: gitops/
+    path: .
   destination:
     server: https://kubernetes.default.svc
-    namespace: mario-prod
+    namespace: default
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
 EOF
-```
 
-#### Step 5: Access the Game
-
-```bash
-# Get the external IP of the LoadBalancer
-kubectl get svc -n mario-prod
-
-# Open in browser
-start http://<EXTERNAL-IP>
+# Get ArgoCD admin password
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d
 ```
 
 ---
 
-## Security Hardening (DevSecOps)
+## 🎮 Application — Game Details
 
-### Container Security
+The Mario game is a full HTML5 JavaScript port of **Infinite Mario Bros** — originally written in Java by Notch (Markus Persson, creator of Minecraft).
 
-```dockerfile
-# Use minimal base image
-FROM nginx:1.25-alpine
+### Game Engine (`webapp/Enjine/`)
 
-# Run as non-root user
-RUN addgroup -S mario && adduser -S mario -G mario
-USER mario
+A custom JavaScript engine with the following systems:
 
-# Remove unnecessary packages
-RUN apk del --no-cache apk-tools
+| Module | Responsibility |
+|---|---|
+| `application.js` | Bootstrap, main game loop |
+| `gameCanvas.js` | HTML5 Canvas 2D context management |
+| `keyboardInput.js` | Real-time keyboard event capture |
+| `resources.js` | Async image and sound asset loading |
+| `camera.js` | Scrolling viewport camera |
+| `gameTimer.js` | Delta-time based game loop |
+| `drawableManager.js` | Z-ordered render pipeline |
+| `animatedSprite.js` | Frame-based sprite animation |
+| `collideable.js` | AABB collision detection |
+| `state.js` | Game state machine base class |
 
-# Read-only filesystem
-# Set in Kubernetes securityContext (see below)
+### Game States
+
+| State | Description |
+|---|---|
+| `loadingState.js` | Asset preloading with progress |
+| `titleState.js` | Title screen |
+| `mapState.js` | World map navigation |
+| `levelState.js` | Active gameplay (physics, enemies, collectibles) |
+| `winState.js` | Level complete screen |
+| `loseState.js` | Game over screen |
+
+### Controls
+
+| Key | Action |
+|---|---|
+| ← → Arrow | Move left / right |
+| ↑ Arrow / Space | Jump |
+| Shift | Run / Fire |
+
+---
+
+## 🔐 Security Hardening (DevSecOps)
+
+### Current Security Controls in Pipeline
+
+| Control | Tool | Stage | Status |
+|---|---|---|---|
+| SAST (Static Analysis) | SonarQube | Pre-build | ⚠️ Configured, commented out |
+| Container image scanning | Trivy (tarball mode) | Post-build | ✅ Active |
+| Severity gate | CRITICAL + HIGH | Scan | ⚠️ Non-blocking (exit-code: 0) |
+| Secrets management | GitHub Secrets | CI | ✅ Active |
+| Version pinning | Auto-increment | Build | ✅ Active |
+
+### Recommended Hardening (Not Yet Applied)
+
+**1. Enforce Trivy Hard Gate**
+```yaml
+# Change in e2e-gitops.yaml:
+exit-code: '1'   # Fail pipeline on CRITICAL/HIGH CVEs
 ```
 
-### Kubernetes Security Context
+**2. Upgrade Base Image**
+```dockerfile
+# Current (outdated):
+FROM tomcat:9.0.14-jre8-alpine
 
+# Recommended:
+FROM tomcat:10.1-jre21-alpine
+```
+
+**3. Run as Non-Root**
+```dockerfile
+RUN addgroup -S mario && adduser -S mario -G mario
+USER mario
+```
+
+**4. Kubernetes Security Context**
 ```yaml
 securityContext:
   runAsNonRoot: true
@@ -280,92 +473,54 @@ securityContext:
   readOnlyRootFilesystem: true
   allowPrivilegeEscalation: false
   capabilities:
-    drop:
-      - ALL
+    drop: ["ALL"]
 ```
 
-### AKS Network Policies
+**5. Enable SonarQube SAST**
 
+Uncomment the `sonarqube_sast_scan` job in `.github/workflows/e2e-gitops.yaml` and set `SONAR_HOST_URL` + `SONAR_TOKEN` in GitHub Secrets.
+
+**6. Add Network Policy**
 ```yaml
-# Deny all ingress by default, allow only from ingress controller
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: mario-netpol
-  namespace: mario-prod
+  name: mario-default-deny
 spec:
   podSelector:
     matchLabels:
-      app: mario
-  policyTypes:
-    - Ingress
-    - Egress
+      app: supermariogame
+  policyTypes: [Ingress, Egress]
   ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: ingress-nginx
-```
-
-### Image Scanning (Trivy)
-
-```bash
-# Scan image for vulnerabilities before push
-trivy image --severity HIGH,CRITICAL mario-game:local
-
-# Scan IaC
-trivy config terraform/
-
-# Fail pipeline on CRITICAL findings
-trivy image --exit-code 1 --severity CRITICAL mario-game:local
-```
-
-### Checkov IaC Scan (Terraform)
-
-```bash
-checkov -d terraform/ \
-  --framework terraform \
-  --check CKV_AZURE_5,CKV_AZURE_6,CKV_AZURE_7
-```
-
-### Security Checklist
-
-| Control | Tool | Status |
-|---|---|---|
-| Container vulnerability scanning | Trivy | ✅ CI enforced |
-| IaC misconfiguration scanning | Checkov | ✅ CI enforced |
-| Non-root container execution | Kubernetes securityContext | ✅ Enforced |
-| Network segmentation | Kubernetes NetworkPolicy | ✅ Default-deny |
-| Secret management | Azure Key Vault + CSI Driver | ✅ No hardcoded secrets |
-| TLS encryption in transit | cert-manager + Let's Encrypt | ✅ Auto-renewed |
-| RBAC least privilege | AKS + Azure RBAC | ✅ Service Principal scoped |
-| Image signing | Azure ACR Content Trust | ⚠️ Recommended |
-| Runtime threat detection | Microsoft Defender for Containers | ⚠️ Recommended |
-
----
-
-## Repository Structure
-
-```
-GitOps-End-To-End-Project/
-├── app/                        ← Mario game source (HTML5/JS)
-├── Dockerfile                  ← Container definition
-├── .github/
-│   └── workflows/
-│       └── ci.yaml             ← GitHub Actions CI pipeline
-├── terraform/
-│   ├── main.tf                 ← AKS cluster definition
-│   ├── variables.tf
-│   └── outputs.tf
-└── gitops/
-    ├── deployment.yaml         ← Kubernetes Deployment
-    ├── service.yaml            ← LoadBalancer Service
-    ├── ingress.yaml            ← NGINX Ingress + TLS
-    └── networkpolicy.yaml      ← Default-deny NetworkPolicy
+  - ports:
+    - port: 8080
 ```
 
 ---
 
+## 🔧 CI/CD Pipeline Jobs Summary
+
+| Job | Depends On | Runner | Key Steps |
+|---|---|---|---|
+| `sonarqube_sast_scan` *(disabled)* | — | ubuntu-latest | Checkout → SonarQube scan |
+| `build_push_supermario_docker_image` | sonarqube *(disabled)* | ubuntu-latest | Checkout → Docker login → Build → Push |
+| `run_container_image_scan_on_supermario_docker_image` | build_push | ubuntu-latest | Pull image → Save tar → Trivy scan |
+| `update_k8s_yaml_version_file_with_latest_image_tag` | image_scan | ubuntu-latest | Git pull → sed update → Commit → Push |
+
 ---
 
-*Learning GitOps the right way — secure by default, automated by design.*
+## 📌 Key Configuration Files
+
+| File | Purpose |
+|---|---|
+| `.github/workflows/e2e-gitops.yaml` | Full GitHub Actions CI/CD pipeline |
+| `Dockerfile` | Tomcat 9 Alpine container definition |
+| `deployment.yaml` | Kubernetes Deployment + LoadBalancer Service |
+| `version.txt` | Current image version (auto-incremented by pipeline) |
+| `webapp/index.html` | Game entry point — 640×480 Canvas |
+
+
+
+---
+
+*Secure by design. Automated by default. Deployed with GitOps.*
